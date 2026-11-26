@@ -1,0 +1,1523 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>可愛日系粉紅扭蛋機 - Gachapon</title>
+  <!-- 載入 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 載入日系圓潤可愛字體 Zen Maru Gothic 與 Noto Sans TC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --pink-bg-light: #FFF0F5;
+      --pink-soft: #FFD1DF;
+      --pink-mid: #FF9EB5;
+      --pink-primary: #FF6B95;
+      --pink-deep: #FF4D79;
+      --green-selected: #10B981;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Zen Maru Gothic', 'Noto Sans TC', sans-serif;
+      background-color: var(--pink-bg-light);
+      background-image:
+        radial-gradient(#FFC2D4 2px, transparent 2px),
+        radial-gradient(#FFD6E0 2px, #FFF0F5 2px);
+      background-size: 36px 36px;
+      background-position: 0 0, 18px 18px;
+      color: #5A3A44;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    /* ==========================================
+       橫向 / 縱向自適應排版 (Orientation)
+       ========================================== */
+    .app-layout {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      width: 100%;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 0.75rem;
+      gap: 1rem;
+    }
+
+    .machine-stage {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .control-stage {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 縱向模式 (Portrait)：上方扭蛋機，下方數字/名字/題目設定面板 */
+    @media (orientation: portrait) {
+      .app-layout {
+        flex-direction: column;
+        justify-content: flex-start;
+      }
+    }
+
+    /* 橫向模式 (Landscape)：左側扭蛋機，右側可捲動設定面板 */
+    @media (orientation: landscape) and (min-width: 640px) {
+      .app-layout {
+        flex-direction: row;
+        align-items: stretch;
+        height: 100vh;
+        max-height: 100vh;
+        overflow: hidden;
+        padding: 0.9rem 1.25rem;
+        gap: 1.25rem;
+      }
+      .machine-stage {
+        flex: 0 0 40%;
+        max-width: 420px;
+        height: 100%;
+        justify-content: center;
+      }
+      .control-stage {
+        flex: 1;
+        height: 100%;
+        overflow: hidden;
+      }
+      .control-scroll-area {
+        overflow-y: auto;
+        flex: 1;
+      }
+    }
+
+    /* 自訂可愛捲軸 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #FFE8EF;
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #FF9EB5;
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #FF6B95;
+    }
+
+    /* ==========================================
+       粉紅日系扭蛋機立體質感與動畫
+       ========================================== */
+    .gacha-dome {
+      background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.94) 0%, rgba(255, 240, 246, 0.58) 45%, rgba(255, 194, 214, 0.48) 100%);
+      box-shadow:
+        inset 0 -16px 24px rgba(255, 107, 149, 0.25),
+        inset 0 10px 22px rgba(255, 255, 255, 0.92),
+        0 8px 20px rgba(217, 56, 96, 0.16);
+      border: 5px solid #FFFFFF;
+    }
+
+    .gacha-body {
+      background: linear-gradient(180deg, #FF9EB5 0%, #FF6B95 52%, #F2527C 100%);
+      box-shadow:
+        inset 0 6px 12px rgba(255, 255, 255, 0.6),
+        inset 0 -10px 16px rgba(189, 34, 75, 0.35),
+        0 14px 28px rgba(217, 56, 96, 0.28);
+      border: 4px solid #FFFFFF;
+    }
+
+    /* 轉盤把手旋轉動畫 */
+    .crank-wheel {
+      transition: transform 1.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow:
+        0 6px 12px rgba(189, 34, 75, 0.35),
+        inset 0 3px 6px rgba(255, 255, 255, 0.9);
+    }
+    .crank-wheel.spinning {
+      transform: rotate(360deg);
+    }
+
+    /* 玻璃罩內扭蛋球 */
+    .mini-capsule {
+      transition: left 0.3s ease, top 0.3s ease;
+      will-change: transform, left, top;
+    }
+    .mini-capsule.swirling {
+      transition: none;
+    }
+
+    /* 出蛋口掉出扭蛋動畫 */
+    @keyframes dropOutCapsule {
+      0% {
+        transform: translateY(-45px) scale(0.45) rotate(-90deg);
+        opacity: 0;
+      }
+      55% {
+        transform: translateY(10px) scale(1.08) rotate(15deg);
+        opacity: 1;
+      }
+      78% {
+        transform: translateY(-4px) scale(0.96) rotate(-6deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(0) scale(1) rotate(0deg);
+        opacity: 1;
+      }
+    }
+    .dropped-capsule-anim {
+      animation: dropOutCapsule 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    /* 開蛋視窗與上下殼打開動畫 */
+    @keyframes popModalIn {
+      0% { transform: scale(0.65); opacity: 0; }
+      70% { transform: scale(1.04); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .modal-pop {
+      animation: popModalIn 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    @keyframes shellTopOpen {
+      0% { transform: translateY(0) rotate(0deg); }
+      100% { transform: translateY(-44px) rotate(-18deg); opacity: 0.94; }
+    }
+    @keyframes shellBottomOpen {
+      0% { transform: translateY(0) rotate(0deg); }
+      100% { transform: translateY(44px) rotate(14deg); opacity: 0.94; }
+    }
+    @keyframes resultCardReveal {
+      0% { transform: scale(0.3); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .shell-top-anim {
+      animation: shellTopOpen 0.55s 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    .shell-bottom-anim {
+      animation: shellBottomOpen 0.55s 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    .result-reveal-anim {
+      animation: resultCardReveal 0.45s 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    }
+
+    /* 3D 可愛按鈕 */
+    .btn-kawaii-pink {
+      background: linear-gradient(180deg, #FF7597 0%, #FF4D79 100%);
+      box-shadow: 0 5px 0 #C92A52, 0 8px 16px rgba(255, 77, 121, 0.35);
+      transition: all 0.12s ease;
+    }
+    .btn-kawaii-pink:hover:not(:disabled) {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+    }
+    .btn-kawaii-pink:active:not(:disabled) {
+      transform: translateY(4px);
+      box-shadow: 0 1px 0 #C92A52, 0 3px 8px rgba(255, 77, 121, 0.3);
+    }
+    .btn-kawaii-pink:disabled {
+      background: linear-gradient(180deg, #E2B8C4 0%, #CFA0AE 100%);
+      box-shadow: 0 4px 0 #A87B88;
+      cursor: not-allowed;
+      opacity: 0.85;
+    }
+
+    /* 號碼按鈕樣式：未選取 vs 綠色已選取 */
+    .num-btn {
+      background-color: #FFF5F8;
+      color: #8C4A5E;
+      border: 2px solid #FFC9D9;
+      box-shadow: 0 2px 0 #F5B0C5;
+      transition: all 0.14s ease;
+    }
+    .num-btn:hover {
+      background-color: #FFE4EC;
+      transform: translateY(-1px);
+    }
+    .num-btn.selected {
+      background: linear-gradient(180deg, #34D399 0%, #10B981 100%);
+      color: #FFFFFF;
+      border-color: #059669;
+      box-shadow: 0 3px 0 #047857, 0 4px 10px rgba(16, 185, 129, 0.32);
+      transform: translateY(-1px);
+    }
+
+    /* 分頁切換按鈕樣式 */
+    .tab-switch-btn {
+      transition: all 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .tab-switch-btn.active {
+      transform: translateY(-1px);
+      box-shadow: 0 3px 0 rgba(219, 39, 119, 0.22), 0 4px 10px rgba(255, 107, 149, 0.25);
+    }
+
+    @keyframes floatSlow {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-5px) rotate(6deg); }
+    }
+    .deco-float {
+      animation: floatSlow 3.5s ease-in-out infinite;
+    }
+
+    /* 彩帶粒子動畫 */
+    @keyframes confettiFall {
+      0% { transform: translateY(-10px) rotate(0deg) scale(1); opacity: 1; }
+      100% { transform: translateY(240px) rotate(540deg) scale(0.7); opacity: 0; }
+    }
+    .confetti-piece {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      pointer-events: none;
+      animation: confettiFall 1.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 頂部提示訊息 Toast（取代 alert） -->
+  <div id="toastBox" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 transform -translate-y-3">
+    <div class="bg-white/95 backdrop-blur-md border-2 border-pink-400 text-pink-700 font-bold px-5 py-2.5 rounded-full shadow-lg flex items-center gap-2 text-sm sm:text-base">
+      <span id="toastIcon">🌸</span>
+      <span id="toastText">提示訊息</span>
+    </div>
+  </div>
+
+  <!-- 主容器：自動偵測橫向/縱向 -->
+  <main class="app-layout">
+
+    <!-- ==========================================
+         左側 / 上方：經典可愛日系粉紅扭蛋機主體
+         ========================================== -->
+    <section class="machine-stage select-none">
+      <!-- 標題與即時數量徽章 -->
+      <div class="flex items-center justify-between w-full max-w-[330px] mb-2 px-1">
+        <div class="flex items-center gap-1.5">
+          <span class="text-xl deco-float">🎀</span>
+          <h1 class="text-base sm:text-lg font-black text-pink-600 tracking-wide">夢幻粉紅扭蛋機</h1>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="bg-white/90 border-2 border-pink-300 text-pink-600 text-xs font-black px-2.5 py-0.5 rounded-full shadow-2xs">
+            機內：<span id="totalCountDisplay" class="text-emerald-600 text-sm">0</span> 顆
+          </span>
+          <button id="soundToggleBtn" type="button" title="切換音效" class="w-7 h-7 rounded-full bg-white/90 border-2 border-pink-300 text-pink-500 flex items-center justify-center text-xs shadow-2xs hover:bg-pink-50 active:scale-95 transition cursor-pointer">
+            🔊
+          </button>
+        </div>
+      </div>
+
+      <!-- 粉紅扭蛋機機身結構 -->
+      <div class="relative w-[275px] sm:w-[305px] flex flex-col items-center">
+
+        <!-- 1. 圓潤粉紅頂蓋與高光銘牌裝飾 -->
+        <div class="relative z-20 w-[186px] sm:w-[204px] h-11 rounded-t-[2.4rem] bg-gradient-to-b from-pink-200 via-pink-400 to-pink-500 border-4 border-white shadow-md flex items-center justify-center -mb-3">
+          <div class="absolute top-1.5 left-6 w-14 h-2 bg-white/75 rounded-full -rotate-6"></div>
+          <span class="text-white/95 text-xs font-black tracking-widest drop-shadow-xs">✦ GACHAPON ✦</span>
+        </div>
+
+        <!-- 2. 透明玻璃球罩 (#globe) -->
+        <div id="globe" class="gacha-dome relative z-10 w-[250px] h-[250px] sm:w-[276px] sm:h-[276px] rounded-full overflow-hidden flex items-center justify-center">
+          <!-- 玻璃弧面高光 -->
+          <div class="pointer-events-none absolute top-4 left-6 w-16 h-8 bg-white/75 rounded-full -rotate-35 blur-[1px] z-20"></div>
+          <div class="pointer-events-none absolute top-12 left-4 w-4 h-4 bg-white/80 rounded-full z-20"></div>
+
+          <!-- 玻璃罩內的可愛彩色扭蛋群 (由底部向上堆疊) -->
+          <div id="capsulesContainer" class="relative w-full h-full"></div>
+
+          <!-- 空機提示文字 -->
+          <div id="emptyDomeHint" class="absolute inset-0 flex flex-col items-center justify-center text-center px-6 pointer-events-none z-10">
+            <span class="text-2xl mb-1 opacity-70">🫧</span>
+            <p class="text-xs font-black text-pink-500/80 leading-relaxed">
+              扭蛋機目前是空的喔！<br/>請加入數字、名字或題目
+            </p>
+          </div>
+        </div>
+
+        <!-- 3. 白色/粉紅機械中腰與機身主體 -->
+        <div class="gacha-body relative z-20 w-[238px] sm:w-[262px] rounded-t-[1.6rem] rounded-b-[2.2rem] -mt-7 pt-3 pb-4 px-4 flex flex-col items-center gap-2.5">
+          <!-- 白色奶油邊框頸環 -->
+          <div class="w-[214px] sm:w-[236px] h-3.5 bg-white/95 rounded-full shadow-inner -mt-1"></div>
+
+          <!-- 銀色投幣孔 + 圓形旋轉轉盤 (#dial) 區塊 -->
+          <div class="w-full flex items-center justify-between px-2 pt-0.5">
+            <!-- 左側：日系銘牌與投幣孔 -->
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="bg-white/95 border-2 border-pink-200 rounded-xl px-2.5 py-1 text-center shadow-2xs">
+                <span class="block text-[10px] font-black text-pink-500 leading-none">KAWAII</span>
+                <span class="block text-[9px] font-bold text-pink-400 leading-tight">100 YEN</span>
+              </div>
+              <div class="w-9 h-11 rounded-xl bg-gradient-to-b from-slate-100 via-slate-300 to-slate-400 border-2 border-white shadow-inner flex items-center justify-center">
+                <div class="w-1.5 h-6 bg-slate-700 rounded-full shadow-inner"></div>
+              </div>
+            </div>
+
+            <!-- 中央：圓形旋轉轉盤 (#dial) -->
+            <div class="relative flex items-center justify-center">
+              <div class="w-24 h-24 sm:w-26 sm:h-26 rounded-full bg-white/95 border-4 border-pink-200 shadow-inner flex items-center justify-center">
+                <button id="crankWheelBtn" type="button" aria-label="轉動轉盤" class="crank-wheel relative w-20 h-20 sm:w-22 sm:h-22 rounded-full bg-gradient-to-b from-white via-pink-50 to-pink-100 border-4 border-pink-300 flex items-center justify-center cursor-pointer active:scale-95">
+                  <div class="w-full h-5 bg-gradient-to-b from-pink-300 via-pink-400 to-pink-500 rounded-full border-2 border-white shadow-md flex items-center justify-between px-1.5">
+                    <span class="w-2 h-2 rounded-full bg-white/80"></span>
+                    <span class="text-[9px] font-black text-white tracking-tighter">TURN</span>
+                    <span class="w-2 h-2 rounded-full bg-white/80"></span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <!-- 右側：可愛愛心裝飾貼紙 -->
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="w-8 h-8 rounded-full bg-white/90 border-2 border-pink-200 flex items-center justify-center text-sm shadow-2xs">
+                💖
+              </div>
+              <div class="w-8 h-8 rounded-full bg-white/90 border-2 border-pink-200 flex items-center justify-center text-sm shadow-2xs">
+                ⭐
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. 底部粉紅出蛋口與透明擋板 -->
+          <div class="w-[154px] sm:w-[168px] h-16 rounded-2xl bg-gradient-to-b from-pink-900/55 to-pink-950/75 border-4 border-white shadow-inner relative overflow-hidden flex items-end justify-center pb-1.5">
+            <div class="absolute top-0 inset-x-0 h-5 bg-white/25 border-b border-white/40 pointer-events-none flex items-center justify-center">
+              <span class="text-[9px] font-black text-white/90 tracking-widest">PUSH</span>
+            </div>
+            <!-- 掉出的扭蛋展示槽 -->
+            <div id="traySlot" class="relative z-10 flex items-center justify-center"></div>
+          </div>
+        </div>
+
+        <!-- 5. 圓胖粉紅機腳 -->
+        <div class="w-[196px] sm:w-[216px] flex items-center justify-between -mt-2 px-3 z-10">
+          <div class="w-12 h-5 rounded-b-2xl bg-gradient-to-b from-pink-500 to-pink-600 border-x-4 border-b-4 border-white shadow-md"></div>
+          <div class="w-12 h-5 rounded-b-2xl bg-gradient-to-b from-pink-500 to-pink-600 border-x-4 border-b-4 border-white shadow-md"></div>
+        </div>
+
+        <!-- 轉動扭蛋主按鈕 -->
+        <button id="spinBtn" type="button" class="btn-kawaii-pink mt-3 w-[238px] sm:w-[262px] py-3 px-5 rounded-2xl text-white font-black text-base sm:text-lg tracking-wider flex items-center justify-center gap-2 border-2 border-white cursor-pointer">
+          <span>🎰</span>
+          <span id="spinBtnText">轉動扭蛋！</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         右側 / 下方：數字 (1-100)、名字及題目輸入面板 (支援分頁切換按鈕)
+         ========================================== -->
+    <section class="control-stage bg-white/92 backdrop-blur-md rounded-3xl border-4 border-white shadow-xl p-3.5 sm:p-5 flex flex-col gap-3">
+
+      <!-- 面板頂部：一鍵切換按鈕列 (數字點選 / 名字輸入 / 題目輸入 / 全部總覽) -->
+      <div class="flex flex-col gap-2 pb-2.5 border-b-2 border-pink-100">
+        <div class="grid grid-cols-4 gap-1.5" role="tablist" aria-label="設定項目切換">
+          <button type="button" data-tab="numbers" class="tab-switch-btn active flex flex-col sm:flex-row items-center justify-center gap-1 py-2 px-1.5 rounded-2xl border-2 border-emerald-400 bg-emerald-500 text-white font-black text-xs sm:text-sm cursor-pointer">
+            <span>🔢 數字點選</span>
+            <span id="tabBadgeNumbers" class="bg-white/25 text-white text-[11px] px-1.5 py-0.2 rounded-full">0</span>
+          </button>
+
+          <button type="button" data-tab="names" class="tab-switch-btn flex flex-col sm:flex-row items-center justify-center gap-1 py-2 px-1.5 rounded-2xl border-2 border-pink-200 bg-pink-50 hover:bg-pink-100 text-pink-700 font-black text-xs sm:text-sm cursor-pointer">
+            <span>🧸 名字輸入</span>
+            <span id="tabBadgeNames" class="bg-pink-200/80 text-pink-800 text-[11px] px-1.5 py-0.2 rounded-full">0</span>
+          </button>
+
+          <button type="button" data-tab="topics" class="tab-switch-btn flex flex-col sm:flex-row items-center justify-center gap-1 py-2 px-1.5 rounded-2xl border-2 border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 font-black text-xs sm:text-sm cursor-pointer">
+            <span>📝 題目輸入</span>
+            <span id="tabBadgeTopics" class="bg-amber-200/80 text-amber-900 text-[11px] px-1.5 py-0.2 rounded-full">0</span>
+          </button>
+
+          <button type="button" data-tab="all" class="tab-switch-btn flex flex-col sm:flex-row items-center justify-center gap-1 py-2 px-1.5 rounded-2xl border-2 border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-700 font-black text-xs sm:text-sm cursor-pointer">
+            <span>🌈 全部總覽</span>
+            <span id="tabBadgeAll" class="bg-purple-200/80 text-purple-800 text-[11px] px-1.5 py-0.2 rounded-full">0</span>
+          </button>
+        </div>
+
+        <!-- 抽選範圍與取出模式控制列 -->
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs font-bold text-pink-600">🎯 抽選範圍：</span>
+            <select id="drawModeSelect" aria-label="抽取範圍" class="bg-pink-50 border border-pink-300 text-pink-800 text-xs font-bold rounded-xl px-2.5 py-1 focus:outline-none">
+              <option value="all">🌈 全部混合抽</option>
+              <option value="currentTab">📌 僅抽目前分頁</option>
+              <option value="numbers">🔢 只抽數字 (1-100)</option>
+              <option value="names">🧸 只抽名字</option>
+              <option value="topics">📝 只抽題目</option>
+            </select>
+          </div>
+
+          <!-- 抽中後是否不放回開關 -->
+          <label class="inline-flex items-center gap-1.5 cursor-pointer bg-pink-50 hover:bg-pink-100 px-2.5 py-1 rounded-xl border border-pink-200 transition">
+            <input id="removeAfterDrawCheckbox" type="checkbox" checked class="accent-pink-500 w-4 h-4 rounded cursor-pointer" />
+            <span class="text-xs font-bold text-pink-700">抽中後取出</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 可捲動的三大輸入區容器（依上方切換按鈕顯示對應面板） -->
+      <div class="control-scroll-area pr-1 flex flex-col gap-3.5">
+
+        <!-- ==========================================
+             區塊一：數字設定 (1-100 點選變綠色 + 快速號碼輸入)
+             ========================================== -->
+        <div id="panelNumbers" class="bg-emerald-50/55 border-2 border-emerald-200 rounded-2xl p-3 flex flex-col gap-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-sm sm:text-base font-black text-emerald-800 flex items-center gap-1.5">
+              <span>🔢</span>
+              <span>數字點選 / 輸入 (1–100 號)</span>
+            </h2>
+            <div class="flex items-center gap-1.5">
+              <button id="selectAllNumsBtn" type="button" class="text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white px-2.5 py-1 rounded-xl shadow-2xs active:scale-95 transition cursor-pointer">
+                全選 1-100
+              </button>
+              <button id="clearAllNumsBtn" type="button" class="text-xs font-bold bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-300 px-2.5 py-1 rounded-xl active:scale-95 transition cursor-pointer">
+                清空數字
+              </button>
+            </div>
+          </div>
+
+          <!-- 快速輸入指定號碼或範圍 (例如: 7 或 1-50 或 3, 28, 99) -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input id="quickNumberInput" type="text" placeholder="快速輸入號碼或範圍（例如：7 或 1-50 或 3, 28, 99）" class="flex-1 rounded-xl border-2 border-emerald-200 focus:border-emerald-400 focus:outline-none px-3 py-1.5 text-xs sm:text-sm bg-white text-gray-700" />
+            <button id="addQuickNumberBtn" type="button" class="bg-emerald-500 hover:bg-emerald-600 text-white text-xs sm:text-sm font-bold px-3.5 py-1.5 rounded-xl shadow-2xs active:scale-95 transition shrink-0 flex items-center justify-center gap-1 cursor-pointer">
+              <span>➕</span> <span>加入數字</span>
+            </button>
+          </div>
+
+          <p class="text-[11px] font-bold text-emerald-700/85">
+            💡 點選下方 1–100 號碼按鈕（已放入扭蛋機的號碼會轉為綠色）：
+          </p>
+
+          <!-- 1-100 網格按鈕容器 -->
+          <div id="numberGrid" class="grid grid-cols-5 sm:grid-cols-10 gap-1.5 max-h-[290px] sm:max-h-[340px] overflow-y-auto p-1 pr-1.5 rounded-xl bg-white/50 border border-emerald-100">
+            <!-- JS 動態生成 1~100 顆按鈕 -->
+          </div>
+        </div>
+
+        <!-- ==========================================
+             區塊二：名字輸入位置
+             ========================================== -->
+        <div id="panelNames" class="hidden bg-pink-50/65 border-2 border-pink-200 rounded-2xl p-3 flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <label for="nameInput" class="text-sm sm:text-base font-black text-pink-800 flex items-center gap-1.5">
+              <span>🧸</span>
+              <span>名字輸入</span>
+            </label>
+            <button id="clearNamesBtn" type="button" class="text-xs text-pink-600 hover:underline font-bold cursor-pointer">清空名字</button>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-2">
+            <textarea id="nameInput" rows="2" placeholder="輸入名字，可用換行或逗號分隔，例如：小明、小美、阿傑" class="flex-1 rounded-xl border-2 border-pink-200 focus:border-pink-400 focus:outline-none p-2 text-xs sm:text-sm bg-white text-gray-700 resize-none"></textarea>
+            <button id="addNameBtn" type="button" class="bg-pink-500 hover:bg-pink-600 text-white text-xs sm:text-sm font-bold px-4 py-2 rounded-xl shadow-2xs active:scale-95 transition shrink-0 flex items-center justify-center gap-1 cursor-pointer">
+              <span>➕</span> <span>加入名字</span>
+            </button>
+          </div>
+
+          <!-- 已加入的名字標籤列表 -->
+          <div id="nameTagsContainer" class="flex flex-wrap gap-1.5 min-h-[48px] p-2.5 rounded-xl bg-white/80 border border-dashed border-pink-200">
+            <span class="text-xs text-gray-400 italic">尚未加入任何名字</span>
+          </div>
+        </div>
+
+        <!-- ==========================================
+             區塊三：題目輸入位置
+             ========================================== -->
+        <div id="panelTopics" class="hidden bg-amber-50/65 border-2 border-amber-200 rounded-2xl p-3 flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <label for="topicInput" class="text-sm sm:text-base font-black text-amber-800 flex items-center gap-1.5">
+              <span>📝</span>
+              <span>題目輸入</span>
+            </label>
+            <button id="clearTopicsBtn" type="button" class="text-xs text-amber-700 hover:underline font-bold cursor-pointer">清空題目</button>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-2">
+            <textarea id="topicInput" rows="2" placeholder="輸入題目或懲罰/獎勵內容，可用換行或逗號分隔，例如：唱一首歌、真心話大冒險" class="flex-1 rounded-xl border-2 border-amber-200 focus:border-amber-400 focus:outline-none p-2 text-xs sm:text-sm bg-white text-gray-700 resize-none"></textarea>
+            <button id="addTopicBtn" type="button" class="bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-bold px-4 py-2 rounded-xl shadow-2xs active:scale-95 transition shrink-0 flex items-center justify-center gap-1 cursor-pointer">
+              <span>➕</span> <span>加入題目</span>
+            </button>
+          </div>
+
+          <!-- 已加入的題目標籤列表 -->
+          <div id="topicTagsContainer" class="flex flex-wrap gap-1.5 min-h-[48px] p-2.5 rounded-xl bg-white/80 border border-dashed border-amber-200">
+            <span class="text-xs text-gray-400 italic">尚未加入任何題目</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 底部一鍵重置按鈕 -->
+      <div class="pt-1.5 border-t-2 border-pink-100 flex items-center justify-between text-xs">
+        <span class="text-pink-400 font-bold">✨ 提示：橫放或直放裝置會自動切換最佳排版</span>
+        <button id="resetEverythingBtn" type="button" class="text-gray-500 hover:text-rose-500 font-bold px-2.5 py-1 rounded-lg hover:bg-rose-50 transition cursor-pointer">
+          🗑️ 全部歸零重置
+        </button>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- ==========================================
+       扭蛋開啟與結果展示視窗 (Modal)
+       ========================================== -->
+  <div id="resultModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-pink-950/55 backdrop-blur-xs p-4">
+    <div id="resultModalCard" class="modal-pop relative w-full max-w-sm bg-gradient-to-b from-white to-pink-50 rounded-[2rem] border-4 border-white shadow-2xl p-6 flex flex-col items-center text-center overflow-hidden">
+
+      <!-- 彩帶灑花層 -->
+      <div id="confettiLayer" class="absolute inset-0 pointer-events-none overflow-hidden z-30"></div>
+
+      <!-- 背景放射光芒裝飾 -->
+      <div class="absolute -top-16 -inset-x-16 h-48 bg-gradient-to-b from-pink-200/50 to-transparent rounded-full blur-xl pointer-events-none"></div>
+
+      <!-- 類別標籤 -->
+      <span id="resultCategoryBadge" class="relative z-10 inline-flex items-center gap-1 bg-pink-500 text-white text-xs font-black px-3.5 py-1 rounded-full shadow-xs mb-3">
+        ✨ 抽中結果 ✨
+      </span>
+
+      <!-- 開蛋動畫視覺區 -->
+      <div class="relative w-44 h-44 flex items-center justify-center my-1">
+        <!-- 扭蛋上半殼 -->
+        <div id="modalShellTop" class="shell-top-anim absolute top-4 w-32 h-16 rounded-t-full bg-gradient-to-b from-pink-300 to-pink-500 border-4 border-white shadow-md z-20 flex items-center justify-center">
+          <div class="w-12 h-2.5 bg-white/60 rounded-full -mt-4 -ml-8 -rotate-12"></div>
+        </div>
+
+        <!-- 中央彈出的結果卡片 -->
+        <div class="result-reveal-anim relative z-10 w-full bg-white border-4 border-pink-300 rounded-2xl px-4 py-5 shadow-lg flex flex-col items-center justify-center">
+          <p id="resultMainText" class="text-2xl sm:text-3xl font-black text-pink-600 break-words max-w-full leading-snug">
+            7
+          </p>
+        </div>
+
+        <!-- 扭蛋下半殼 -->
+        <div id="modalShellBottom" class="shell-bottom-anim absolute bottom-4 w-32 h-16 rounded-b-full bg-gradient-to-t from-amber-200 to-white border-4 border-white shadow-md z-20"></div>
+      </div>
+
+      <p id="resultSubHint" class="text-xs text-pink-400 font-bold mt-2 mb-4">
+        恭喜獲得！點擊下方按鈕返回扭蛋機
+      </p>
+
+      <!-- 返回扭蛋機按鈕（必須點擊此按鈕才會解除鎖定並允許再次轉動） -->
+      <button id="returnMachineBtn" type="button" class="btn-kawaii-pink w-full py-3.5 px-6 rounded-2xl text-white font-black text-base sm:text-lg tracking-wider flex items-center justify-center gap-2 border-2 border-white cursor-pointer">
+        <span>🔙</span>
+        <span>返回扭蛋機</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      // ==========================================
+      // 1. 應用程式狀態 (預設完全清空，0 顆扭蛋，支援 1-100 號)
+      // ==========================================
+      const MAX_NUMBER = 100;
+
+      const state = {
+        selectedNumbers: new Set(), // 1-100 號中點選的綠色號碼集合
+        names: [],                  // 已加入的名字陣列
+        topics: [],                 // 已加入的題目陣列
+        activeTab: 'numbers',       // 'numbers' | 'names' | 'topics' | 'all'
+        drawMode: 'all',            // 'all' | 'currentTab' | 'numbers' | 'names' | 'topics'
+        removeAfterDraw: true,      // 抽中後是否從扭蛋機取出
+        isBusy: false,              // 轉動中或開蛋視窗開啟中（必須按返回扭蛋機才解鎖）
+        soundEnabled: true
+      };
+
+      // 可愛馬卡龍日系雙色扭蛋配色
+      const capsulePalettes = [
+        { top: 'from-pink-300 to-pink-500', bottom: 'from-pink-50 to-white' },
+        { top: 'from-sky-300 to-sky-500', bottom: 'from-sky-50 to-white' },
+        { top: 'from-amber-300 to-amber-500', bottom: 'from-amber-50 to-white' },
+        { top: 'from-emerald-300 to-emerald-500', bottom: 'from-emerald-50 to-white' },
+        { top: 'from-purple-300 to-purple-500', bottom: 'from-purple-50 to-white' },
+        { top: 'from-rose-300 to-rose-500', bottom: 'from-rose-50 to-white' }
+      ];
+
+      // ==========================================
+      // 2. DOM 元素快取
+      // ==========================================
+      const els = {
+        totalCountDisplay: document.getElementById('totalCountDisplay'),
+        tabBadgeNumbers: document.getElementById('tabBadgeNumbers'),
+        tabBadgeNames: document.getElementById('tabBadgeNames'),
+        tabBadgeTopics: document.getElementById('tabBadgeTopics'),
+        tabBadgeAll: document.getElementById('tabBadgeAll'),
+        tabButtons: Array.from(document.querySelectorAll('.tab-switch-btn')),
+        panelNumbers: document.getElementById('panelNumbers'),
+        panelNames: document.getElementById('panelNames'),
+        panelTopics: document.getElementById('panelTopics'),
+        capsulesContainer: document.getElementById('capsulesContainer'),
+        emptyDomeHint: document.getElementById('emptyDomeHint'),
+        crankWheelBtn: document.getElementById('crankWheelBtn'),
+        traySlot: document.getElementById('traySlot'),
+        spinBtn: document.getElementById('spinBtn'),
+        spinBtnText: document.getElementById('spinBtnText'),
+        soundToggleBtn: document.getElementById('soundToggleBtn'),
+        removeAfterDrawCheckbox: document.getElementById('removeAfterDrawCheckbox'),
+        drawModeSelect: document.getElementById('drawModeSelect'),
+        numberGrid: document.getElementById('numberGrid'),
+        quickNumberInput: document.getElementById('quickNumberInput'),
+        addQuickNumberBtn: document.getElementById('addQuickNumberBtn'),
+        selectAllNumsBtn: document.getElementById('selectAllNumsBtn'),
+        clearAllNumsBtn: document.getElementById('clearAllNumsBtn'),
+        nameInput: document.getElementById('nameInput'),
+        addNameBtn: document.getElementById('addNameBtn'),
+        clearNamesBtn: document.getElementById('clearNamesBtn'),
+        nameTagsContainer: document.getElementById('nameTagsContainer'),
+        topicInput: document.getElementById('topicInput'),
+        addTopicBtn: document.getElementById('addTopicBtn'),
+        clearTopicsBtn: document.getElementById('clearTopicsBtn'),
+        topicTagsContainer: document.getElementById('topicTagsContainer'),
+        resetEverythingBtn: document.getElementById('resetEverythingBtn'),
+        resultModal: document.getElementById('resultModal'),
+        confettiLayer: document.getElementById('confettiLayer'),
+        resultCategoryBadge: document.getElementById('resultCategoryBadge'),
+        modalShellTop: document.getElementById('modalShellTop'),
+        modalShellBottom: document.getElementById('modalShellBottom'),
+        resultMainText: document.getElementById('resultMainText'),
+        resultSubHint: document.getElementById('resultSubHint'),
+        returnMachineBtn: document.getElementById('returnMachineBtn'),
+        toastBox: document.getElementById('toastBox'),
+        toastIcon: document.getElementById('toastIcon'),
+        toastText: document.getElementById('toastText')
+      };
+
+      // ==========================================
+      // 3. Web Audio 可愛合成音效
+      // ==========================================
+      let audioCtx = null;
+      function getAudioContext() {
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) audioCtx = new AudioContextClass();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        return audioCtx;
+      }
+
+      function playSound(type) {
+        if (!state.soundEnabled) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        const now = ctx.currentTime;
+        if (type === 'pop') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.08);
+          gain.gain.setValueAtTime(0.14, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.09);
+        } else if (type === 'crank') {
+          for (let i = 0; i < 6; i++) {
+            const t = now + i * 0.11;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(320 + i * 35, t);
+            osc.frequency.exponentialRampToValueAtTime(180, t + 0.07);
+            gain.gain.setValueAtTime(0.16, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.08);
+          }
+        } else if (type === 'drop') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(420, now);
+          osc.frequency.exponentialRampToValueAtTime(160, now + 0.18);
+          gain.gain.setValueAtTime(0.22, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.2);
+        } else if (type === 'open') {
+          const notes = [523.25, 659.25, 783.99, 1046.5];
+          notes.forEach((freq, idx) => {
+            const t = now + idx * 0.07;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.15, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.26);
+          });
+        }
+      }
+
+      // ==========================================
+      // 4. 頂部浮動提示 Toast
+      // ==========================================
+      let toastTimer = null;
+      function showToast(msg, icon = '🌸') {
+        els.toastText.textContent = msg;
+        els.toastIcon.textContent = icon;
+        els.toastBox.classList.remove('opacity-0', '-translate-y-3');
+        els.toastBox.classList.add('opacity-100', 'translate-y-0');
+
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          els.toastBox.classList.remove('opacity-100', 'translate-y-0');
+          els.toastBox.classList.add('opacity-0', '-translate-y-3');
+        }, 2300);
+      }
+
+      // ==========================================
+      // 5. 玻璃罩底部由下往上重力堆疊排版演算法
+      // ==========================================
+      let capsuleNodes = [];
+
+      function computeBottomUpStackPositions(count, domeSize) {
+        if (count <= 0) return [];
+        const R = domeSize / 2;
+        const capSize = count > 26 ? 30 : 34;
+        const capR = capSize / 2;
+        const innerR = R - 8;
+        const placed = [];
+
+        // 由最底部往上逐層掃描，確保每顆扭蛋緊貼底部圓弧或下方已堆疊的扭蛋，絕不凌空
+        const stepY = capSize * 0.82;
+        const bottomStartY = domeSize - 10 - capR;
+
+        for (let row = 0; placed.length < count && row < 16; row++) {
+          const cy = bottomStartY - row * stepY;
+          const dy = cy - R;
+          const maxChordHalf = Math.sqrt(Math.max(0, (innerR - capR) ** 2 - dy * dy));
+          if (maxChordHalf < capR * 0.4) continue;
+
+          const spacingX = capSize * 0.92;
+          const cols = Math.max(1, Math.floor((maxChordHalf * 2) / spacingX) + 1);
+          const rowWidth = (cols - 1) * spacingX;
+          const startX = R - rowWidth / 2 + ((row % 2 === 1) ? 3 : -3);
+
+          // 由中間往兩側排序放置，讓少量扭蛋自然集中於正下方底部中央
+          const indices = Array.from({ length: cols }, (_, i) => i).sort(
+            (a, b) => Math.abs(a - (cols - 1) / 2) - Math.abs(b - (cols - 1) / 2)
+          );
+
+          for (const colIdx of indices) {
+            if (placed.length >= count) break;
+            const cx = startX + colIdx * spacingX;
+            const distFromCenter = Math.hypot(cx - R, cy - R);
+            if (distFromCenter <= innerR - capR + 2) {
+              placed.push({
+                cx,
+                cy,
+                size: capSize,
+                tilt: ((placed.length * 37) % 36) - 18
+              });
+            }
+          }
+        }
+
+        // 若超過單輪容量，補充緊貼底部區域的剩餘位置
+        while (placed.length < count) {
+          const idx = placed.length;
+          const angle = Math.PI * 0.25 + ((idx * 0.41) % (Math.PI * 0.5));
+          const rad = innerR - capR - ((idx % 4) * (capSize * 0.72));
+          placed.push({
+            cx: R + Math.cos(angle) * rad * 0.85,
+            cy: R + Math.sin(angle) * Math.max(12, rad),
+            size: capSize,
+            tilt: ((idx * 29) % 40) - 20
+          });
+        }
+
+        return placed;
+      }
+
+      function renderDomeCapsules(count) {
+        const container = els.capsulesContainer;
+        container.innerHTML = '';
+        capsuleNodes = [];
+
+        if (count <= 0) {
+          els.emptyDomeHint.classList.remove('hidden');
+          return;
+        }
+        els.emptyDomeHint.classList.add('hidden');
+
+        const visualCount = Math.min(count, 42);
+        const domeSize = container.clientWidth || 256;
+        const positions = computeBottomUpStackPositions(visualCount, domeSize);
+
+        positions.forEach((pos, idx) => {
+          const palette = capsulePalettes[idx % capsulePalettes.length];
+          const el = document.createElement('div');
+          el.className = 'mini-capsule absolute rounded-full border-2 border-white shadow-sm overflow-hidden flex flex-col pointer-events-none';
+          el.style.width = `${pos.size}px`;
+          el.style.height = `${pos.size}px`;
+          el.style.left = `${pos.cx - pos.size / 2}px`;
+          el.style.top = `${pos.cy - pos.size / 2}px`;
+          el.style.transform = `rotate(${pos.tilt}deg)`;
+          el.style.zIndex = String(10 + Math.round(pos.cy));
+
+          el.innerHTML = `
+            <div class="w-full h-1/2 bg-gradient-to-b ${palette.top} border-b border-white/80"></div>
+            <div class="w-full h-1/2 bg-gradient-to-t ${palette.bottom}"></div>
+          `;
+          container.appendChild(el);
+
+          capsuleNodes.push({
+            el,
+            palette,
+            restCx: pos.cx,
+            restCy: pos.cy,
+            x: pos.cx,
+            y: pos.cy,
+            vx: 0,
+            vy: 0,
+            size: pos.size,
+            tilt: pos.tilt
+          });
+        });
+      }
+
+      // ==========================================
+      // 6. 物理動畫：大範圍順時針公轉攪拌（無自轉）+ 地心吸力自然下落微彈靜止
+      // ==========================================
+      function animateClockwiseOrbitalSwirl(swirlDurationMs = 920) {
+        return new Promise((resolve) => {
+          if (capsuleNodes.length === 0) {
+            resolve();
+            return;
+          }
+
+          const domeSize = els.capsulesContainer.clientWidth || 256;
+          const R = domeSize / 2;
+
+          const particles = capsuleNodes.map((node, idx) => {
+            node.el.classList.add('swirling');
+            const dx = node.restCx - R;
+            const dy = node.restCy - R;
+            const baseRadius = Math.max(18, Math.hypot(dx, dy));
+            const baseAngle = Math.atan2(dy, dx);
+            return {
+              ...node,
+              baseRadius,
+              baseAngle,
+              orbitScale: 0.72 + ((idx % 5) * 0.065),
+              phaseOffset: (idx * 0.24) % (Math.PI * 2)
+            };
+          });
+
+          const startTime = performance.now();
+
+          // 階段 A：順時針大範圍繞圈公轉（保持自然角度，不原地自轉）
+          function stepSwirl(now) {
+            const elapsed = now - startTime;
+            const t = Math.min(1, elapsed / swirlDurationMs);
+            const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+            const angularSweep = ease * Math.PI * 2.65;
+            const liftBlend = Math.sin(t * Math.PI);
+
+            particles.forEach((p) => {
+              const targetOrbitR = (R - p.size * 0.62) * p.orbitScale;
+              const currentR = p.baseRadius * (1 - liftBlend * 0.75) + targetOrbitR * (liftBlend * 0.75);
+              const theta = p.baseAngle + angularSweep + liftBlend * 0.25 * Math.sin(p.phaseOffset);
+
+              const nx = R + Math.cos(theta) * currentR;
+              const ny = R + Math.sin(theta) * currentR;
+
+              p.vx = (nx - p.x) * 18;
+              p.vy = (ny - p.y) * 18;
+              p.x = nx;
+              p.y = ny;
+
+              p.el.style.left = `${p.x - p.size / 2}px`;
+              p.el.style.top = `${p.y - p.size / 2}px`;
+              const gentleSway = p.tilt + Math.sin(theta) * 6;
+              p.el.style.transform = `rotate(${gentleSway.toFixed(1)}deg)`;
+            });
+
+            if (t < 1) {
+              requestAnimationFrame(stepSwirl);
+            } else {
+              // 階段 B：地心吸力自然下墜與微彈靜止
+              let lastFrame = performance.now();
+              const gravity = 1450;
+
+              particles.forEach((p) => {
+                p.vx *= 0.22;
+                p.vy = Math.min(p.vy * 0.2, 40);
+                p.settled = false;
+              });
+
+              function stepGravity(nowG) {
+                const dt = Math.min(0.033, (nowG - lastFrame) / 1000);
+                lastFrame = nowG;
+                let allSettled = true;
+
+                particles.forEach((p) => {
+                  if (p.settled) return;
+
+                  p.vy += gravity * dt;
+                  const pullX = (p.restCx - p.x) * 8.5;
+                  p.vx = p.vx * 0.9 + pullX * dt;
+
+                  p.x += p.vx * dt;
+                  p.y += p.vy * dt;
+
+                  const maxR = R - 8 - p.size / 2;
+                  const distC = Math.hypot(p.x - R, p.y - R);
+                  if (distC > maxR) {
+                    const ang = Math.atan2(p.y - R, p.x - R);
+                    p.x = R + Math.cos(ang) * maxR;
+                    p.y = R + Math.sin(ang) * maxR;
+                    p.vx *= 0.4;
+                  }
+
+                  if (p.y >= p.restCy) {
+                    p.y = p.restCy;
+                    if (Math.abs(p.vy) > 95) {
+                      p.vy = -p.vy * 0.28;
+                      p.x += (p.restCx - p.x) * 0.35;
+                    } else {
+                      p.vy = 0;
+                      p.vx = 0;
+                      p.x = p.restCx;
+                      p.y = p.restCy;
+                      p.settled = true;
+                    }
+                  }
+
+                  if (!p.settled) {
+                    allSettled = false;
+                  }
+
+                  p.el.style.left = `${p.x - p.size / 2}px`;
+                  p.el.style.top = `${p.y - p.size / 2}px`;
+                  p.el.style.transform = `rotate(${p.tilt}deg)`;
+                });
+
+                if (!allSettled) {
+                  requestAnimationFrame(stepGravity);
+                } else {
+                  particles.forEach((p) => p.el.classList.remove('swirling'));
+                  resolve();
+                }
+              }
+
+              requestAnimationFrame(stepGravity);
+            }
+          }
+
+          requestAnimationFrame(stepSwirl);
+        });
+      }
+
+      // ==========================================
+      // 7. 分頁切換、有效扭蛋池與 UI 同步渲染
+      // ==========================================
+      function switchTab(tabKey) {
+        state.activeTab = tabKey;
+
+        els.tabButtons.forEach((btn) => {
+          const key = btn.dataset.tab;
+          const isActive = key === tabKey;
+          const badge = btn.querySelector('span:last-child');
+
+          btn.classList.remove(
+            'active',
+            'bg-emerald-500', 'border-emerald-400', 'text-white', 'bg-emerald-50', 'hover:bg-emerald-100', 'border-emerald-200', 'text-emerald-700',
+            'bg-pink-500', 'border-pink-400', 'bg-pink-50', 'hover:bg-pink-100', 'border-pink-200', 'text-pink-700',
+            'bg-amber-500', 'border-amber-400', 'bg-amber-50', 'hover:bg-amber-100', 'border-amber-200', 'text-amber-800',
+            'bg-purple-500', 'border-purple-400', 'bg-purple-50', 'hover:bg-purple-100', 'border-purple-200', 'text-purple-700'
+          );
+
+          if (key === 'numbers') {
+            if (isActive) {
+              btn.classList.add('active', 'bg-emerald-500', 'border-emerald-400', 'text-white');
+              if (badge) badge.className = 'bg-white/25 text-white text-[11px] px-1.5 py-0.2 rounded-full';
+            } else {
+              btn.classList.add('bg-emerald-50', 'hover:bg-emerald-100', 'border-emerald-200', 'text-emerald-700');
+              if (badge) badge.className = 'bg-emerald-200/80 text-emerald-800 text-[11px] px-1.5 py-0.2 rounded-full';
+            }
+          } else if (key === 'names') {
+            if (isActive) {
+              btn.classList.add('active', 'bg-pink-500', 'border-pink-400', 'text-white');
+              if (badge) badge.className = 'bg-white/25 text-white text-[11px] px-1.5 py-0.2 rounded-full';
+            } else {
+              btn.classList.add('bg-pink-50', 'hover:bg-pink-100', 'border-pink-200', 'text-pink-700');
+              if (badge) badge.className = 'bg-pink-200/80 text-pink-800 text-[11px] px-1.5 py-0.2 rounded-full';
+            }
+          } else if (key === 'topics') {
+            if (isActive) {
+              btn.classList.add('active', 'bg-amber-500', 'border-amber-400', 'text-white');
+              if (badge) badge.className = 'bg-white/25 text-white text-[11px] px-1.5 py-0.2 rounded-full';
+            } else {
+              btn.classList.add('bg-amber-50', 'hover:bg-amber-100', 'border-amber-200', 'text-amber-800');
+              if (badge) badge.className = 'bg-amber-200/80 text-amber-900 text-[11px] px-1.5 py-0.2 rounded-full';
+            }
+          } else if (key === 'all') {
+            if (isActive) {
+              btn.classList.add('active', 'bg-purple-500', 'border-purple-400', 'text-white');
+              if (badge) badge.className = 'bg-white/25 text-white text-[11px] px-1.5 py-0.2 rounded-full';
+            } else {
+              btn.classList.add('bg-purple-50', 'hover:bg-purple-100', 'border-purple-200', 'text-purple-700');
+              if (badge) badge.className = 'bg-purple-200/80 text-purple-800 text-[11px] px-1.5 py-0.2 rounded-full';
+            }
+          }
+        });
+
+        els.panelNumbers.classList.toggle('hidden', !(tabKey === 'numbers' || tabKey === 'all'));
+        els.panelNames.classList.toggle('hidden', !(tabKey === 'names' || tabKey === 'all'));
+        els.panelTopics.classList.toggle('hidden', !(tabKey === 'topics' || tabKey === 'all'));
+
+        if (state.drawMode === 'currentTab') {
+          updateAllUI();
+        }
+      }
+
+      function getEffectiveDrawCategory() {
+        if (state.drawMode === 'currentTab') {
+          return state.activeTab;
+        }
+        return state.drawMode;
+      }
+
+      function getActivePool() {
+        const pool = [];
+        const effectiveMode = getEffectiveDrawCategory();
+
+        if (effectiveMode === 'all' || effectiveMode === 'numbers') {
+          Array.from(state.selectedNumbers)
+            .sort((a, b) => a - b)
+            .forEach(num => {
+              pool.push({ type: 'number', label: '幸運數字', value: String(num), raw: num });
+            });
+        }
+        if (effectiveMode === 'all' || effectiveMode === 'names') {
+          state.names.forEach((name, idx) => {
+            pool.push({ type: 'name', label: '幸運名字', value: name, index: idx });
+          });
+        }
+        if (effectiveMode === 'all' || effectiveMode === 'topics') {
+          state.topics.forEach((topic, idx) => {
+            pool.push({ type: 'topic', label: '幸運題目', value: topic, index: idx });
+          });
+        }
+        return pool;
+      }
+
+      // 生成 1-100 號綠色點選按鈕網格
+      function renderNumberGrid() {
+        els.numberGrid.innerHTML = '';
+        for (let i = 1; i <= MAX_NUMBER; i++) {
+          const isSelected = state.selectedNumbers.has(i);
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = i;
+          btn.className = `num-btn py-1.5 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center cursor-pointer select-none ${isSelected ? 'selected' : ''}`;
+          btn.addEventListener('click', () => {
+            if (state.isBusy) return;
+            playSound('pop');
+            if (state.selectedNumbers.has(i)) {
+              state.selectedNumbers.delete(i);
+            } else {
+              state.selectedNumbers.add(i);
+            }
+            updateAllUI();
+          });
+          els.numberGrid.appendChild(btn);
+        }
+      }
+
+      function renderTags(container, items, emptyText, badgeBg, onRemove) {
+        container.innerHTML = '';
+        if (items.length === 0) {
+          container.innerHTML = `<span class="text-xs text-gray-400 italic">${emptyText}</span>`;
+          return;
+        }
+        items.forEach((item, idx) => {
+          const tag = document.createElement('span');
+          tag.className = `inline-flex items-center gap-1.5 ${badgeBg} text-xs sm:text-sm font-bold px-3 py-1 rounded-full shadow-2xs`;
+
+          const textSpan = document.createElement('span');
+          textSpan.textContent = item;
+
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.textContent = '✕';
+          delBtn.className = 'hover:text-rose-600 font-black ml-0.5 cursor-pointer';
+          delBtn.addEventListener('click', () => {
+            if (state.isBusy) return;
+            playSound('pop');
+            onRemove(idx);
+            updateAllUI();
+          });
+
+          tag.appendChild(textSpan);
+          tag.appendChild(delBtn);
+          container.appendChild(tag);
+        });
+      }
+
+      function updateAllUI() {
+        const pool = getActivePool();
+        const totalAllItems = state.selectedNumbers.size + state.names.length + state.topics.length;
+
+        els.totalCountDisplay.textContent = pool.length;
+        els.tabBadgeNumbers.textContent = state.selectedNumbers.size;
+        els.tabBadgeNames.textContent = state.names.length;
+        els.tabBadgeTopics.textContent = state.topics.length;
+        els.tabBadgeAll.textContent = totalAllItems;
+
+        renderNumberGrid();
+        renderTags(
+          els.nameTagsContainer,
+          state.names,
+          '尚未加入任何名字',
+          'bg-pink-100 text-pink-800 border border-pink-300',
+          (idx) => state.names.splice(idx, 1)
+        );
+        renderTags(
+          els.topicTagsContainer,
+          state.topics,
+          '尚未加入任何題目',
+          'bg-amber-100 text-amber-800 border border-amber-300',
+          (idx) => state.topics.splice(idx, 1)
+        );
+
+        renderDomeCapsules(pool.length);
+      }
+
+      // ==========================================
+      // 8. 扭蛋動作流程：轉盤轉動 -> 順時針公轉 + 重力落地 -> 同色掉出打開 -> 返回解鎖
+      // ==========================================
+      function setBusyState(busy) {
+        state.isBusy = busy;
+        els.spinBtn.disabled = busy;
+        els.crankWheelBtn.disabled = busy;
+        els.spinBtnText.textContent = busy ? '扭蛋轉動中...' : '轉動扭蛋！';
+      }
+
+      function spawnConfetti() {
+        els.confettiLayer.innerHTML = '';
+        const colors = ['#FF7597', '#34D399', '#FBBF24', '#60A5FA', '#C084FC', '#FB7185'];
+        for (let i = 0; i < 24; i++) {
+          const piece = document.createElement('span');
+          piece.className = 'confetti-piece';
+          piece.style.left = `${Math.random() * 94 + 3}%`;
+          piece.style.top = `${Math.random() * 20}%`;
+          piece.style.backgroundColor = colors[i % colors.length];
+          piece.style.animationDelay = `${(Math.random() * 0.35).toFixed(2)}s`;
+          els.confettiLayer.appendChild(piece);
+        }
+      }
+
+      function startGachaponSequence() {
+        if (state.isBusy) return;
+
+        const pool = getActivePool();
+        if (pool.length === 0) {
+          playSound('pop');
+          showToast('扭蛋機內沒有項目喔！請先加入數字、名字或題目', '⚠️');
+          return;
+        }
+
+        setBusyState(true);
+        els.traySlot.innerHTML = '';
+
+        // 隨機抽出一個項目，並從玻璃罩現有扭蛋中選一顆確保全程同色連貫
+        const picked = pool[Math.floor(Math.random() * pool.length)];
+        const pickedNodeIndex = capsuleNodes.length > 0
+          ? Math.floor(Math.random() * capsuleNodes.length)
+          : -1;
+        const pickedNode = pickedNodeIndex >= 0 ? capsuleNodes[pickedNodeIndex] : null;
+        const palette = pickedNode
+          ? pickedNode.palette
+          : capsulePalettes[Math.floor(Math.random() * capsulePalettes.length)];
+
+        // 步驟 1：轉盤轉動 + 順時針公轉攪拌 + 地心吸力自然下落靜止
+        playSound('crank');
+        els.crankWheelBtn.classList.add('spinning');
+
+        animateClockwiseOrbitalSwirl(920).then(() => {
+          // 步驟 2：扭蛋落定靜止後，隱藏玻璃罩內被抽出的那一顆，並在出蛋口滾出同色扭蛋
+          playSound('drop');
+
+          if (pickedNode && pickedNode.el) {
+            pickedNode.el.style.opacity = '0';
+          }
+
+          els.traySlot.innerHTML = `
+            <div class="dropped-capsule-anim w-12 h-12 rounded-full border-2 border-white shadow-lg overflow-hidden flex flex-col">
+              <div class="w-full h-1/2 bg-gradient-to-b ${palette.top} border-b border-white/80"></div>
+              <div class="w-full h-1/2 bg-gradient-to-t ${palette.bottom}"></div>
+            </div>
+          `;
+
+          // 步驟 3：扭蛋滾出後自動打開並顯示結果視窗（沿用同一組扭蛋配色）
+          setTimeout(() => {
+            openResultModal(picked, palette);
+          }, 680);
+        });
+      }
+
+      function openResultModal(picked, palette) {
+        playSound('open');
+        spawnConfetti();
+
+        if (picked.type === 'number') {
+          els.resultCategoryBadge.textContent = '🔢 抽中數字';
+          els.resultCategoryBadge.className = 'relative z-10 inline-flex items-center gap-1 bg-emerald-500 text-white text-xs font-black px-3.5 py-1 rounded-full shadow-xs mb-3';
+          els.resultMainText.className = 'text-4xl sm:text-5xl font-black text-emerald-600 break-words max-w-full leading-tight';
+        } else if (picked.type === 'name') {
+          els.resultCategoryBadge.textContent = '🧸 抽中名字';
+          els.resultCategoryBadge.className = 'relative z-10 inline-flex items-center gap-1 bg-pink-500 text-white text-xs font-black px-3.5 py-1 rounded-full shadow-xs mb-3';
+          els.resultMainText.className = 'text-2xl sm:text-3xl font-black text-pink-600 break-words max-w-full leading-snug';
+        } else {
+          els.resultCategoryBadge.textContent = '📝 抽中題目';
+          els.resultCategoryBadge.className = 'relative z-10 inline-flex items-center gap-1 bg-amber-500 text-white text-xs font-black px-3.5 py-1 rounded-full shadow-xs mb-3';
+          els.resultMainText.className = 'text-xl sm:text-2xl font-black text-amber-700 break-words max-w-full leading-snug';
+        }
+
+        els.resultMainText.textContent = picked.value;
+
+        els.modalShellTop.className = `shell-top-anim absolute top-4 w-32 h-16 rounded-t-full bg-gradient-to-b ${palette.top} border-4 border-white shadow-md z-20 flex items-center justify-center`;
+        els.modalShellBottom.className = `shell-bottom-anim absolute bottom-4 w-32 h-16 rounded-b-full bg-gradient-to-t ${palette.bottom} border-4 border-white shadow-md z-20`;
+
+        if (state.removeAfterDraw) {
+          if (picked.type === 'number') {
+            state.selectedNumbers.delete(picked.raw);
+          } else if (picked.type === 'name') {
+            state.names.splice(picked.index, 1);
+          } else if (picked.type === 'topic') {
+            state.topics.splice(picked.index, 1);
+          }
+        }
+
+        const remaining = getActivePool().length;
+        els.resultSubHint.textContent = state.removeAfterDraw
+          ? `已從扭蛋機取出！目前機內還剩 ${remaining} 顆`
+          : `目前為可重複抽取模式（機內共 ${remaining} 顆）`;
+
+        els.resultModal.classList.remove('hidden');
+        els.resultModal.classList.add('flex');
+      }
+
+      // 點擊「返回扭蛋機」按鈕關閉結果視窗並復位轉盤與玻璃罩扭蛋，才允許再次轉動
+      function closeResultAndReturn() {
+        playSound('pop');
+        els.resultModal.classList.add('hidden');
+        els.resultModal.classList.remove('flex');
+        els.traySlot.innerHTML = '';
+        els.confettiLayer.innerHTML = '';
+
+        els.crankWheelBtn.style.transition = 'none';
+        els.crankWheelBtn.classList.remove('spinning');
+        void els.crankWheelBtn.offsetWidth;
+        els.crankWheelBtn.style.transition = '';
+
+        updateAllUI();
+        setBusyState(false);
+      }
+
+      // ==========================================
+      // 9. 輸入解析與事件綁定
+      // ==========================================
+      function parseBatchItems(rawText) {
+        return rawText
+          .split(/[\n,，、]+/)
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+      }
+
+      // 快速號碼或範圍解析 (支援 1-100，例如 "7", "1-50", "3, 28, 99")
+      function handleQuickAddNumbers() {
+        if (state.isBusy) return;
+        const raw = els.quickNumberInput.value.trim();
+        if (!raw) {
+          showToast(`請輸入 1-${MAX_NUMBER} 的數字或範圍（例如：1-50 或 5, 88）`, '🔢');
+          return;
+        }
+
+        const tokens = raw.split(/[\s,，、]+/).filter(Boolean);
+        let addedCount = 0;
+
+        tokens.forEach(token => {
+          const rangeMatch = token.match(/^(\d+)\s*[-~至到]\s*(\d+)$/);
+          if (rangeMatch) {
+            const start = Math.max(1, Math.min(MAX_NUMBER, parseInt(rangeMatch[1], 10)));
+            const end = Math.max(1, Math.min(MAX_NUMBER, parseInt(rangeMatch[2], 10)));
+            const lo = Math.min(start, end);
+            const hi = Math.max(start, end);
+            for (let n = lo; n <= hi; n++) {
+              if (!state.selectedNumbers.has(n)) {
+                state.selectedNumbers.add(n);
+                addedCount++;
+              }
+            }
+          } else if (/^\d+$/.test(token)) {
+            const num = parseInt(token, 10);
+            if (num >= 1 && num <= MAX_NUMBER && !state.selectedNumbers.has(num)) {
+              state.selectedNumbers.add(num);
+              addedCount++;
+            }
+          }
+        });
+
+        if (addedCount > 0) {
+          playSound('pop');
+          els.quickNumberInput.value = '';
+          updateAllUI();
+          showToast(`已將 ${addedCount} 個數字轉為綠色並放入扭蛋機！`, '🟢');
+        } else {
+          showToast(`請輸入 1 到 ${MAX_NUMBER} 之間尚未選取的有效數字`, '⚠️');
+        }
+      }
+
+      function handleAddNames() {
+        if (state.isBusy) return;
+        const items = parseBatchItems(els.nameInput.value);
+        if (items.length === 0) {
+          showToast('請先輸入至少一個名字喔！', '🧸');
+          return;
+        }
+        playSound('pop');
+        state.names.push(...items);
+        els.nameInput.value = '';
+        updateAllUI();
+        showToast(`已加入 ${items.length} 個名字到扭蛋機！`, '💖');
+      }
+
+      function handleAddTopics() {
+        if (state.isBusy) return;
+        const items = parseBatchItems(els.topicInput.value);
+        if (items.length === 0) {
+          showToast('請先輸入至少一個題目喔！', '📝');
+          return;
+        }
+        playSound('pop');
+        state.topics.push(...items);
+        els.topicInput.value = '';
+        updateAllUI();
+        showToast(`已加入 ${items.length} 個題目到扭蛋機！`, '✨');
+      }
+
+      els.tabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          playSound('pop');
+          switchTab(btn.dataset.tab);
+        });
+      });
+
+      els.spinBtn.addEventListener('click', startGachaponSequence);
+      els.crankWheelBtn.addEventListener('click', startGachaponSequence);
+      els.returnMachineBtn.addEventListener('click', closeResultAndReturn);
+
+      els.soundToggleBtn.addEventListener('click', () => {
+        state.soundEnabled = !state.soundEnabled;
+        els.soundToggleBtn.textContent = state.soundEnabled ? '🔊' : '🔇';
+        if (state.soundEnabled) playSound('pop');
+      });
+
+      els.addQuickNumberBtn.addEventListener('click', handleQuickAddNumbers);
+      els.quickNumberInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleQuickAddNumbers();
+        }
+      });
+
+      els.selectAllNumsBtn.addEventListener('click', () => {
+        if (state.isBusy) return;
+        playSound('pop');
+        for (let i = 1; i <= MAX_NUMBER; i++) state.selectedNumbers.add(i);
+        updateAllUI();
+        showToast(`已將 1-${MAX_NUMBER} 號全部轉為綠色並放入扭蛋機！`, '🟢');
+      });
+
+      els.clearAllNumsBtn.addEventListener('click', () => {
+        if (state.isBusy) return;
+        playSound('pop');
+        state.selectedNumbers.clear();
+        updateAllUI();
+      });
+
+      els.addNameBtn.addEventListener('click', handleAddNames);
+      els.nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          handleAddNames();
+        }
+      });
+      els.clearNamesBtn.addEventListener('click', () => {
+        if (state.isBusy) return;
+        playSound('pop');
+        state.names = [];
+        updateAllUI();
+      });
+
+      els.addTopicBtn.addEventListener('click', handleAddTopics);
+      els.topicInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          handleAddTopics();
+        }
+      });
+      els.clearTopicsBtn.addEventListener('click', () => {
+        if (state.isBusy) return;
+        playSound('pop');
+        state.topics = [];
+        updateAllUI();
+      });
+
+      els.removeAfterDrawCheckbox.addEventListener('change', (e) => {
+        state.removeAfterDraw = e.target.checked;
+      });
+
+      els.drawModeSelect.addEventListener('change', (e) => {
+        state.drawMode = e.target.value;
+        updateAllUI();
+      });
+
+      els.resetEverythingBtn.addEventListener('click', () => {
+        if (state.isBusy) return;
+        playSound('pop');
+        state.selectedNumbers.clear();
+        state.names = [];
+        state.topics = [];
+        updateAllUI();
+        showToast('已清空所有數字、名字與題目', '🧹');
+      });
+
+      window.addEventListener('resize', () => {
+        const pool = getActivePool();
+        renderDomeCapsules(pool.length);
+      });
+
+      window.addEventListener('DOMContentLoaded', () => {
+        switchTab('numbers');
+        updateAllUI();
+      });
+    })();
+  </script>
+</body>
+</html>
